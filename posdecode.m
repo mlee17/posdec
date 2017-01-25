@@ -6,15 +6,18 @@
 %       date: 01/04/17
 %    purpose: test position decode
 %
-function retval = posdecode(v,roiName)
+function roi = posdecode(v,roiName,varargin)
 
 % check arguments
-if ~any(nargin == [2])
+if nargin <2%~any(nargin == [2])
   help posdecode
   return
 end
 
-preload = 1;
+preload = []; corrPlot=[];
+% get type of instance getting
+[argNames argValues args] = getArgs(varargin,{'preload=0', 'corrPlot=0'});
+
 preloadName = sprintf('posdecode_%s',roiName);
 if preload && isfile(setext(preloadName,'mat'))
   disppercent(-inf,'(posdecode) preloading structure');
@@ -23,7 +26,7 @@ if preload && isfile(setext(preloadName,'mat'))
 else
 % load roi and attach pRF coords
 roi = loadROITSeries(v,roiName,1,'Concatenation');
-roi.subjectID = 's0389';
+% roi.subjectID = 's0389';
 roi = mlrAnatDBGetPRFROI(v,roi,'noPull=1');
 
 % get event related structures
@@ -71,7 +74,7 @@ for iCond = 1:8
   vline(-8);
   vline(14);
   vline(8);
-  xaxis(-20,20);
+  xaxis(-24,24);
   yaxis(-20,20);
   if isodd(iCond)
     subplot(4,4,4+colNum);hold on
@@ -86,7 +89,7 @@ for iCond = 1:8
       color = 'k';
       plot(x,y,'ko','MarkerSize',p(iVox)*10,'MarkerFaceColor',color,'MarkerEdgeColor','none');
     end
-    xaxis(-20,20);
+    xaxis(-24,24);
     yaxis(-20,20);
     title(sprintf('pRF overlap: %s',stimNames{iCond}));
   end
@@ -105,19 +108,21 @@ p = {};
 x = [];
 y = [];
 
-for iCond = [3 4 5 6];
+for iCond = 1:8;%[3 4 5 6];
   stimXvals = -23:3:23;
-  stimXvals = [-8 8];
+  stimXvals = [-14 -8 8 14];%[-8 8];
   nVals = length(stimXvals);
   nRows = floor(sqrt(nVals));
   nCols = ceil(nVals/nRows);
+  if corrPlot
   mlrSmartfig(sprintf('posdecode2_%i',iCond),'reuse');clf;
+  end
   % get voxel select
   r2cutoff = 0.1;
   pRFcutoff = 0.4;
   voxelSelect = find((roi.r2>r2cutoff)  & (roi.pRF.r>pRFcutoff)');
   for iX = 1:length(stimXvals);
-    subplot(nRows,nCols,iX);
+    if corrPlot; subplot(nRows,nCols,iX); end
     hold on
     stimX = stimXvals(iX);
     for iVoxSelect = 1:length(voxelSelect)
@@ -136,57 +141,67 @@ for iCond = [3 4 5 6];
     p{iX} = p{iX}(~isnan(p{iX}));
     % correlation
     corrVal(iCond,iX) = corr(p{iX}',amplitude{iCond}');
+    if corrPlot
     plot(p{iX},amplitude{iCond},'k.');
     if iX == 1
       title(sprintf('%s x=%0.1f r=%0.4f',stimNames{iCond},stimXvals(iX),corrVal(iCond,iX)));
     else
-      title(sprintf('x=%0.1f r=%0.4f',stimXvals(iX),corrVal(iX)));
+      title(sprintf('x=%0.1f r=%0.4f',stimXvals(iX),corrVal(iCond,iX)));
     end
     drawnow
+    end
   end
 end
 
 highContrastColor = [0.9 0.03 0.05];
 lowContrastColor = [0.5 0.03 0.05];
+
 mlrSmartfig('posdecode_summary');
-meanCorr(1,1) = mean([corrVal(4,1) corrVal(6,2)]);
-meanCorr(2,1) = mean([corrVal(4,2) corrVal(6,1)]);
-meanCorr(1,2) = mean([corrVal(3,1) corrVal(5,2)]);
-meanCorr(2,2) = mean([corrVal(3,2) corrVal(5,1)]);
+meanCorr(1,1) = mean([corrVal(4,2) corrVal(6,3) corrVal(2,1) corrVal(8,4)]); % same loc high con
+meanCorr(2,1) = mean([corrVal(2,2:4) corrVal(4,[1,3,4]) corrVal(6,[1,2,4]) corrVal(8,1:3)]);
+    %mean([corrVal(4,1) corrVal(6,4) corrVal(2,2) corrVal(8,3)]); % different loc high con
+meanCorr(1,2) = mean([corrVal(3,2) corrVal(5,3) corrVal(1,1) corrVal(7,4)]); % same loc low con
+meanCorr(2,2) = mean([corrVal(1,2:4) corrVal(3,[1,3,4]) corrVal(5,[1,2,4]) corrVal(7,1:3)]);
+    %mean([corrVal(3,1) corrVal(5,4) corrVal(1,2) corrVal(7,3)]); % different loc low con
 mybar(meanCorr,'groupLabels',{'Same location','Opposite location'},'withinGroupLabels',{'High contrast','Low Contrast'},'yLabelText','Response correlation to pRF model','withinGroupColors',{highContrastColor lowContrastColor});
 
 mlrSmartfig('posdecode_summary2','reuse');clf
 
-subplot(3,2,1);
+for iM=1:4
+subplot(3,4,iM);
 maxScaleFactor = 12;
-iX = 1;
+iX = iM;
 hold on
 for iVox = 1:length(x)
+    if p{iX}(iVox)>0
   plot(x(iVox),y(iVox),'ko','MarkerFaceColor','k','MarkerEdgeColor','none','MarkerSize',maxScaleFactor*p{iX}(iVox));
+    end
 end
 xaxis(-12,12);yaxis(-12,12);
 xaxis(-15,15);yaxis(-15,15);
 hline(0);vline(0);
 title('pRF Model Prediction');
 drawPublishAxis;
-
-subplot(3,2,2);
-maxScaleFactor = 12;
-iX = 2;
-hold on
-for iVox = 1:length(x)
-  plot(x(iVox),y(iVox),'ko','MarkerFaceColor','k','MarkerEdgeColor','none','MarkerSize',maxScaleFactor*p{iX}(iVox));
 end
-xaxis(-12,12);yaxis(-12,12);
-xaxis(-15,15);yaxis(-15,15);
-hline(0);vline(0);
-title('pRF Model Prediction');
-drawPublishAxis;
 
-subplot(3,2,3);
-scaleFactor = maxScaleFactor/max(amplitude{4});
+% subplot(3,2,2);
+% maxScaleFactor = 12;
+% iX = 2;
+% hold on
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor','k','MarkerEdgeColor','none','MarkerSize',maxScaleFactor*p{iX}(iVox));
+% end
+% xaxis(-12,12);yaxis(-12,12);
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('pRF Model Prediction');
+% drawPublishAxis;
+for iR = 1:4
+subplot(3,4,4+iR);
+iCond = 2*iR;
+scaleFactor = maxScaleFactor/max(amplitude{iCond});
 hold on
-iCond = 4;
+
 for iVox = 1:length(x)
   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',highContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
 end
@@ -196,9 +211,9 @@ hline(0);vline(0);
 title('High contrast response');
 drawPublishAxis;
 
-subplot(3,2,5);
+subplot(3,4,4*2+iR);
 hold on
-iCond = 3;
+iCond = 2*iR-1;
 for iVox = 1:length(x)
   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',lowContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
 end
@@ -207,33 +222,84 @@ hline(0);vline(0);
 title('Low contrast response');
 drawPublishAxis;
 
-subplot(3,2,4);
-scaleFactor = maxScaleFactor/max(amplitude{6});
-hold on
-iCond = 6;
-for iVox = 1:length(x)
-  plot(x(iVox),y(iVox),'ko','MarkerFaceColor',highContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
 end
-xaxis(-12,12);yaxis(-12,12);
-xaxis(-15,15);yaxis(-15,15);
-hline(0);vline(0);
-title('High contrast response');
-drawPublishAxis;
+%keyboard
 
-subplot(3,2,6);
-hold on
-iCond = 5;
-for iVox = 1:length(x)
-  plot(x(iVox),y(iVox),'ko','MarkerFaceColor',lowContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
-end
-xaxis(-15,15);yaxis(-15,15);
-hline(0);vline(0);
-title('Low contrast response');
-drawPublishAxis;
+% subplot(3,4,6);
+% scaleFactor = maxScaleFactor/max(amplitude{4});
+% hold on
+% iCond = 4;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',highContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-12,12);yaxis(-12,12);
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('High contrast response');
+% drawPublishAxis;
+% 
+% subplot(3,2,10);
+% hold on
+% iCond = 3;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',lowContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('Low contrast response');
+% drawPublishAxis;
+% 
+% 
+% subplot(3,2,4);
+% scaleFactor = maxScaleFactor/max(amplitude{6});
+% hold on
+% iCond = 6;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',highContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-12,12);yaxis(-12,12);
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('High contrast response');
+% drawPublishAxis;
+% 
+% subplot(3,2,6);
+% hold on
+% iCond = 5;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',lowContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('Low contrast response');
+% drawPublishAxis;
 
 
+% keyboard
 
-keyboard
+% subplot(3,4,5);
+% scaleFactor = maxScaleFactor/max(amplitude{2});
+% hold on
+% iCond = 2;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',highContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-12,12);yaxis(-12,12);
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('High contrast response');
+% drawPublishAxis;
+% 
+% subplot(3,2,9);
+% hold on
+% iCond = 1;
+% for iVox = 1:length(x)
+%   plot(x(iVox),y(iVox),'ko','MarkerFaceColor',lowContrastColor,'MarkerEdgeColor','none','MarkerSize',scaleFactor*amplitude{iCond}(iVox));
+% end
+% xaxis(-15,15);yaxis(-15,15);
+% hline(0);vline(0);
+% title('Low contrast response');
+% drawPublishAxis;
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %    percentOverlap    %
