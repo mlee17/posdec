@@ -14,9 +14,9 @@ if nargin <2%~any(nargin == [2])
   return
 end
 
-preload = []; corrPlot=[];
+preload = []; corrPlot=[]; sumplot = [];
 % get type of instance getting
-[argNames argValues args] = getArgs(varargin,{'preload=0', 'corrPlot=0'});
+[argNames argValues args] = getArgs(varargin,{'preload=0', 'corrPlot=0', 'sumplot=0'});
 
 preloadName = sprintf('posdecode_%s',roiName);
 if preload && isfile(setext(preloadName,'mat'))
@@ -43,7 +43,7 @@ end
 for iVox = 1:roi.n
   roi.r2(iVox) = roi.fit(iVox).deconv.r2;
 end
-
+if sumplot
 mlrSmartfig('posdecode','reuse');clf;
 for iCond = 1:8
   % get stimulus location from desription
@@ -224,7 +224,7 @@ drawPublishAxis;
 
 end
 %keyboard
-
+end
 % subplot(3,4,6);
 % scaleFactor = maxScaleFactor/max(amplitude{4});
 % hold on
