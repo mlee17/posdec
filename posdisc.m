@@ -72,6 +72,8 @@ task{1}{1}.randVars.calculated.rel = nan;
 task{1}{1}.randVars.calculated.diff = nan;
 % task{1}{1}.randVars.calculated.hemi = nan;
 task{1}{1}.randVars.calculated.rt = nan;
+task{1}{1}.randVars.calculated.con = nan;
+task{1}{1}.randVars.calculated.ecc = nan;
 
 % initialize the task
 for phaseNum = 1:length(task{1})
@@ -98,7 +100,7 @@ end
 % if we got here, we are at the end of the experiment
 myscreen = endTask(myscreen,task);
 
-% dispPsychometric(task{1}{1});
+dispPsychometric(task{1}{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % function that gets called at the start of each segment
@@ -119,6 +121,8 @@ if task.thistrial.thisseg == 1
     stimulus.contrast = task.thistrial.contrast;
     stimulus.eccentricity = task.thistrial.eccentricity;
     task.thistrial.diff = task.thistrial.posDiff;
+    task.thistrial.con = task.thistrial.contrast;
+    task.thistrial.ecc = task.thistrial.eccentricity;
 %     task.thistrial.hemi = task.thistrial.whichHemifield;
     stimulus = initGaussian(stimulus,myscreen);
     
@@ -174,7 +178,7 @@ if ~task.thistrial.gotResponse
         stimulus.fixColor = [0 1 0];
         disp(sprintf('(posdisc) Trial %i: contrast %0.4f ecc %0.1f diff %0.4f resp %i correct', ...
             task.trialnum, stimulus.contrast, stimulus.eccentricity, task.thistrial.posDiff, task.thistrial.whichButton))
-    elseif (task.thistrial.posDiff < 0 && task.thistrial.whichButton == 1) || (task.thistrial.posDiff > 0 && task.thistrial.whichButton == 2)
+    else
         % incorrect
         task.thistrial.correct = 0;
         stimulus.fixColor = [1 0 0];
@@ -221,40 +225,59 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dispPsychometric(task)
 posDiff = task.parameter.posDiff;
+contrast = task.parameter.contrast;
+eccentricity = task.parameter.eccentricity;
 %percent Interval 1
-%high rel
-n.high = zeros(1,length(posDiff)); k.high = zeros(1,length(posDiff));
-for i = 1:length(posDiff)
-    resp.h{i} = task.randVars.resp(task.randVars.rel == 2 & task.randVars.diff == posDiff(i));
-    n.high(i) = sum(resp.h{i} == 1  | resp.h{i} == 2);
-    k.high(i) = sum(resp.h{i} == 1);
+for c = 1:length(contrast)
+    for ecc = 1:length(eccentricity)
+    for i = 1:length(posDiff)
+        resp{c}{ecc}{i} = task.randVars.resp(task.randVars.con == contrast(c) & ...
+            task.randVars.ecc == eccentricity(ecc) & task.randVars.diff == posDiff(i));
+        n{c}{ecc}(i) = sum(resp{c}{ecc}{i} == 1 | resp{c}{ecc}{i} == 2);
+        k{c}{ecc}(i) = sum(resp{c}{ecc}{i} == 1);
+    end
+    percent{c}{ecc} = k{c}{ecc}./n{c}{ecc};
+    end
+    
 end
-
-%low rel
-n.low = zeros(1,length(posDiff)); k.low = zeros(1,length(posDiff));
-for i = 1:length(posDiff)
-    resp.l{i} = task.randVars.resp(task.randVars.rel == 1 & task.randVars.diff == posDiff(i));
-    n.low(i) = sum(resp.l{i} == 1  | resp.l{i} == 2);
-    k.low(i) = sum(resp.l{i} == 1);
-end
-
-highRel = k.high./n.high;
-lowRel = k.low./n.low;
 
 figure;
-subplot(1,2,1)
-h1 = plot(posDiff, highRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
-title(sprintf('High reliabilty spatial psychometric function (N=%i)', sum(n.high)));
-ylabel('Percent choices Interval 1 (%)');
-xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-axis([-6 6 0 100]); box off;
-% xlabh = get(gca,'xLabel');
-% set(xlabh,'Position', get(xlabh, 'Position') + [3,0,0]);
-
-subplot(1,2,2)
-h2 = plot(posDiff, lowRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
-title(sprintf('Low reliabilty spatial psychometric function (N=%i)', sum(n.low)));
+for c = 1:length(contrast)
+    subplot(2,3,c)
+    for ecc = 1:length(eccentricity)
+        plot(posDiff, percent{c}{ecc}*100, getcolor(ecc,getsymbol(ecc)), 'MarkerSize', 7, 'MarkerFaceColor', getcolor(ecc));
+        hold on;
+    end
+    title(sprintf('Contrast=%0.4f', contrast(c)));
+    legend('ecc=7.5','ecc=10','ecc=12.5','ecc=15','Location','SouthEast');
+    box off;
+    ylabel('Percent choices Interval 1 (%)');
+    xlabel('Postition difference of targets between interval 1 and 2 (deg)');
+    axis([-5 5 0 100]);
+end
+% 
+% figure;
+% for c = 1:length(contrast)
+%     plot(posDiff, percent{c}*100, getcolor(c,getsymbol(c)), 'MarkerSize', 7);
+%     ylabel('Percent choices Interval 1 (%)');
+%     xlabel('Postition difference of targets between interval 1 and 2 (deg)');
+%     axis([-6 6 0 100]); box off;
+% end
+% 
+% figure;
+% subplot(1,2,1)
+% h1 = plot(posDiff, highRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
+% title(sprintf('High reliabilty spatial psychometric function (N=%i)', sum(n.high)));
 % ylabel('Percent choices Interval 1 (%)');
 % xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-axis([-6 6 0 100]); box off;
-
+% axis([-6 6 0 100]); box off;
+% % xlabh = get(gca,'xLabel');
+% % set(xlabh,'Position', get(xlabh, 'Position') + [3,0,0]);
+% 
+% subplot(1,2,2)
+% h2 = plot(posDiff, lowRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
+% title(sprintf('Low reliabilty spatial psychometric function (N=%i)', sum(n.low)));
+% % ylabel('Percent choices Interval 1 (%)');
+% % xlabel('Postition difference of targets between interval 1 and 2 (deg)');
+% axis([-6 6 0 100]); box off;
+% 
