@@ -16,13 +16,7 @@ clear global stimulus
 mglEatKeys('12`');
 global stimulus
 stimulus.stimType = stimType;
-% stimulus.sdLow = .4;
-% stimulus.sdHigh = .4;
 stimulus.width = 10;
-%change>>>>>parameterize contrast
-% stimulus.contrastLow = .15;
-% stimulus.contrastHigh= .45;
-% stimulus.eccentricity = 10;
 stimulus.sf = 1.8;
 
 stimulus.stimDur = .015; % 15ms
@@ -36,8 +30,6 @@ stimulus.fixWidth = 1;
 stimulus.fixColor = [1 1 1];
 
 stimulus.n = 0;
-
-% get screen size in visual angle
 
 % initalize the screen
 myscreen.background = 0.5;
@@ -212,7 +204,6 @@ elseif strcmpi(stimulus.stimType, 'gabor')
     gaussian = mglMakeGaussian(stimulus.width,stimulus.width,stimulus.width/8, stimulus.width/8);
     gabor = (255*(stimulus.contrast*grating.*gaussian+1)/2);
     stimulus.tex = mglCreateTexture(gabor);
-    
 end
 
  %stim centers
@@ -238,7 +229,6 @@ for c = 1:length(contrast)
     end
     percent{c}{ecc} = k{c}{ecc}./n{c}{ecc};
     end
-    
 end
 
 figure;
@@ -253,31 +243,5 @@ for c = 1:length(contrast)
     box off;
     ylabel('Percent choices Interval 1 (%)');
     xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-    axis([-5 5 0 100]);
+    yaxis(0,100);
 end
-% 
-% figure;
-% for c = 1:length(contrast)
-%     plot(posDiff, percent{c}*100, getcolor(c,getsymbol(c)), 'MarkerSize', 7);
-%     ylabel('Percent choices Interval 1 (%)');
-%     xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-%     axis([-6 6 0 100]); box off;
-% end
-% 
-% figure;
-% subplot(1,2,1)
-% h1 = plot(posDiff, highRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
-% title(sprintf('High reliabilty spatial psychometric function (N=%i)', sum(n.high)));
-% ylabel('Percent choices Interval 1 (%)');
-% xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-% axis([-6 6 0 100]); box off;
-% % xlabh = get(gca,'xLabel');
-% % set(xlabh,'Position', get(xlabh, 'Position') + [3,0,0]);
-% 
-% subplot(1,2,2)
-% h2 = plot(posDiff, lowRel*100, 'o', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k', 'MarkerSize', 7);
-% title(sprintf('Low reliabilty spatial psychometric function (N=%i)', sum(n.low)));
-% % ylabel('Percent choices Interval 1 (%)');
-% % xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-% axis([-6 6 0 100]); box off;
-% 
