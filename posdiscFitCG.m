@@ -24,6 +24,8 @@ if max(ntrials) ==5
             nChoice{add(i)} = [zeros(1,length(posDiff));nChoice{add(i)}];
         end
         contrast = contrast{find(ntrials==5,1)};
+    else
+        contrast = contrast{1};
     end
 else % 4
     ncol=2;
