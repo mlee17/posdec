@@ -2,17 +2,41 @@ function fit = posdiscFitCG(stimfiles)
 
 for s = 1:length(stimfiles)
     load(stimfiles{s});
-    [posDiff, contrast, nTrial{s}, nChoice{s}] = getPercentChoice(task{1}{1});
+    [posDiff, contrast{s}, nTrial{s}, nChoice{s}] = getPercentChoice(task{1}{1});
+    if s == 1
+        stimType = stimulus.stimType;
+        ecc = stimulus.eccentricity;
+    else
+        if ~strcmpi(stimulus.stimType,stimType) || (stimulus.eccentricity~=ecc)
+            disp('stim type not matching')
+            return
+        end
+    end
 end
+%Check N of contrast conditions
+ntrials = cellfun('size',nTrial,1);
+if max(ntrials) ==5
+    ncol=3;
+    if ~all(ntrials == 5)
+        add = find(ntrials~=5);
+        for i = 1:length(add)
+            nTrial{add(i)} = [zeros(1,length(posDiff));nTrial{add(i)}];
+            nChoice{add(i)} = [zeros(1,length(posDiff));nChoice{add(i)}];
+        end
+        contrast = contrast{find(ntrials==5,1)};
+    end
+else % 4
+    ncol=2;
+    contrast = contrast{1};
+end
+
 nTrial = sum(cat(3,nTrial{:}),3);
 nChoice = sum(cat(3,nChoice{:}),3);
 pInt1 = nChoice./nTrial;
 
-stimType = stimulus.stimType;
 stimSize = stimulus.width;
-ecc = stimulus.eccentricity;
 nCon = length(contrast);
-
+nrow=2;ncol=3;
 xs = -6:.01:6;
 figure;
 for iCon = 1:nCon
@@ -27,12 +51,12 @@ for iCon = 1:nCon
     error = sqrt(pfitVal.*(1-pfitVal)./nTrial(iCon,:));
     
     % plot
-    subplot(2,3,iCon)
+    subplot(nrow,ncol,iCon)
     myerrorbar(posDiff, pInt1(iCon,:), 'yError', error, 'Symbol','o');
     hold on;
     plot(xs, fitVal, 'k')
-    title(sprintf('%s Contrast=%0.4f (ecc=%0.1f,size=%0.0f)\nmu=%0.3f, sigma=%0.3f, lambda=%0.3f, B=%0.3f\n', ...
-        stimType,contrast(iCon),ecc,stimSize, mu,sigma,lambda,B));
+    title(sprintf('%s Contrast=%0.4f (ecc=%0.1f,size=%0.0f)\nmu=%0.3f, sigma=%0.3f, lambda=%0.3f, B=%0.3f\n%s', ...
+        stimType,contrast(iCon),ecc,stimSize, mu,sigma,lambda,B,mat2str(nTrial(iCon,:))));
     ylabel('Percent choices Interval 1 (%)');
     xlabel('Postition difference of targets between interval 1 and 2 (deg)');
     axis([-6 6 0 1]); box off; drawnow;
