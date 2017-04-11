@@ -1,4 +1,4 @@
-function fit = posdiscFitCG(stimfiles)
+function [fit,sigma] = posdiscFitCG(stimfiles)
 
 for s = 1:length(stimfiles)
     load(stimfiles{s});
@@ -14,16 +14,16 @@ for s = 1:length(stimfiles)
     end
 end
 %Check N of contrast conditions
-ntrials = cellfun('size',nTrial,1);
-if max(ntrials) ==5
+ncons = cellfun('size',nTrial,1);
+if max(ncons) ==5
     ncol=3;
-    if ~all(ntrials == 5)
-        add = find(ntrials~=5);
+    if ~all(ncons == 5)
+        add = find(ncons~=5);
         for i = 1:length(add)
             nTrial{add(i)} = [zeros(1,length(posDiff));nTrial{add(i)}];
             nChoice{add(i)} = [zeros(1,length(posDiff));nChoice{add(i)}];
         end
-        contrast = contrast{find(ntrials==5,1)};
+        contrast = contrast{find(ncons==5,1)};
     else
         contrast = contrast{1};
     end
@@ -44,12 +44,12 @@ figure;
 for iCon = 1:nCon
     fit{iCon} = fitCG(posDiff, nTrial(iCon,:), nChoice(iCon,:));
     mu = fit{iCon}.fitparams(1);
-    sigma = fit{iCon}.fitparams(2);
+    sigma(iCon) = fit{iCon}.fitparams(2);
     lambda = fit{iCon}.fitparams(3);
     B = fit{iCon}.fitparams(4);
     cgfunc = fit{iCon}.cgfunc;
-    fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,B,x), xs);
-    pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,B,x), posDiff);
+    fitVal = arrayfun(@(x) cgfunc(mu,sigma(iCon),lambda,B,x), xs);
+    pfitVal = arrayfun(@(x) cgfunc(mu,sigma(iCon),lambda,B,x), posDiff);
     error = sqrt(pfitVal.*(1-pfitVal)./nTrial(iCon,:));
     
     % plot
@@ -58,11 +58,18 @@ for iCon = 1:nCon
     hold on;
     plot(xs, fitVal, 'k')
     title(sprintf('%s Contrast=%0.4f (ecc=%0.1f,size=%0.0f)\nmu=%0.3f, sigma=%0.3f, lambda=%0.3f, B=%0.3f\n%s', ...
-        stimType,contrast(iCon),ecc,stimSize, mu,sigma,lambda,B,mat2str(nTrial(iCon,:))));
+        stimType,contrast(iCon),ecc,stimSize, mu,sigma(iCon),lambda,B,mat2str(nTrial(iCon,:))));
     ylabel('Percent choices Interval 1 (%)');
     xlabel('Postition difference of targets between interval 1 and 2 (deg)');
     axis([-6 6 0 1]); box off; drawnow;
+    
 end
+
+subplot(nrow,ncol,6)
+myerrorbar(contrast, sigma, 'o')
+xlabel('contrast')
+ylabel('sigma')
+
 
 function [posDiff, contrast, nTrial, nChoice] = getPercentChoice(task)
 posDiff = task.parameter.posDiff;

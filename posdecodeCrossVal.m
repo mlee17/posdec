@@ -12,7 +12,7 @@ function [roi,p] = posdecodeCrossVal(v, roiName, varargin)
 
 preload = []; n=[]; nFold=[]; sumplot=[];
 % get type of instance getting
-[argNames argValues args] = getArgs(varargin,{'preload=0', 'n=100', 'nFold=5', 'sumplot=0'});
+[argNames argValues args] = getArgs(varargin,{'preload=0', 'n=100', 'nFold=5', 'sumplot=1'});
 
 v = viewSet(v,'curGroup',3);
 v = viewSet(v,'curScan',1);
