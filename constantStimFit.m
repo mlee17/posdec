@@ -1,4 +1,4 @@
-function [fit,sigma] = posdiscFitCG(stimfiles)
+function [fit,sigma] = constantStimFit(stimfiles)
 
 for s = 1:length(stimfiles)
     load(stimfiles{s});
