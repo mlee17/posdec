@@ -112,7 +112,7 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		else
 			subplot(nrow/2,ncol,i-6)
 		end
-		myerrorbar(testVal, pC, 'Symbol','o');
+		myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6, 'MarkerEdgeColor', [1,1,1]);
 		hold on;
     	plot(xs, fitVal, 'k')
     	if taskType==1
