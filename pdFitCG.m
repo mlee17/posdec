@@ -55,6 +55,7 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 	nrow = 4;
 	ncol = ceil(length(fieldNames)/nrow);
 	stairNames = {'con','dist','dist'};
+    fit = cell(length(fieldNames),1);
 	figure(2);figure(1);
 	for i = 1:length(fieldNames)
 		if i==7; figure(2); end
@@ -107,12 +108,14 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
 		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
+        fit{i}.xs = xs;
+        fit{i}.fitVal = fitVal;
 		if i < 7
 			subplot(nrow/2,ncol,i)
 		else
 			subplot(nrow/2,ncol,i-6)
 		end
-		myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6, 'MarkerEdgeColor', [1,1,1]);
+		myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6);
 		hold on;
     	plot(xs, fitVal, 'k')
     	if taskType==1
@@ -120,15 +123,42 @@ function [fit, fieldNames] = pdFitCG(sbjID)
     			stimStr(1).eccentricity, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Correct');
     		xlabel('Contrast');
-    		axis([0 0.6 0 1]); box off; drawnow;
+    		axis([0 0.6 0 1]); box off;
+            [c, ind75] = min(abs(fitVal-.75));
+            line([0 xs(ind75)], [.75 .75], 'Color','b', 'LineStyle', ':');
+            if mu+sigma<=0.6 && mu+sigma >=0
+            line([xs(ind75) xs(ind75)], [.75 0], 'Color','b', 'LineStyle', ':');
+            text(xs(ind75)+0.05, 0.05, sprintf('%.2f', xs(ind75)));
+            end
+            line([0 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
+            if mu <=0.6 && mu>=0
+            line([mu mu], [.5 0], 'Color','r', 'LineStyle', ':');
+            
+            end
+            
+            drawnow;
     	else
     		title(sprintf('Ecc=%d   Con=%0.3f   (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
     			stimStr(1).eccentricity, stimStr(1).stimulus.contrast, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Choice Interval 1');
     		xlabel('Postition difference of targets between interval 1 and 2 (deg)');
-    		axis([-6 6 0 1]); box off; drawnow;
-    	end
-
+    		axis([-6 6 0 1]); box off; 
+            [c, ind75] = min(abs(fitVal-.75));
+            line([-6 xs(ind75)], [.75 .75], 'Color','b', 'LineStyle', ':');
+            if mu+sigma<=6 && mu+sigma>=-6
+            line([xs(ind75) xs(ind75)], [.75 0], 'Color','b', 'LineStyle', ':');
+            text(xs(ind75)+0.5, 0.05, sprintf('%.2f', xs(ind75)));
+            end
+            line([-6 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
+            if mu<=6 && mu>=-6
+            line([mu,mu], [.5 0], 'Color','r', 'LineStyle', ':');
+            
+            end
+            
+            drawnow;
+            
+        end
+ 
 	end
 
 
