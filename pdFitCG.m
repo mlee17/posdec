@@ -58,6 +58,7 @@ function [fit, fieldNames] = pdFitCG(sbjID)
     fit = cell(length(fieldNames),1);
 	figure(2);figure(1);
 	for i = 1:length(fieldNames)
+        clearvars nC testVal nTotal whichTrial
 		if i==7; figure(2); end
 		numSession = length([stim.(fieldNames{i})]);
 		stimStr = [stim.(fieldNames{i})];
@@ -73,34 +74,63 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		for iSession = 1:numSession
 			s{iSession} = stimStr(iSession).stimulus.stair.(stairNames{taskType});
 			Task{iSession} = stimStr(iSession).task;
-			nTrial = s{iSession}.trialNum;
+			nTrial = length(Task{iSession}.randVars.whichint(~isnan(Task{iSession}.randVars.whichint)));
 			respCombined = [respCombined, Task{iSession}.randVars.resp(1:nTrial)];
 			correctCombined = [correctCombined, Task{iSession}.randVars.correct(1:nTrial)];
 			whichCombined = [whichCombined, Task{iSession}.randVars.whichint(1:nTrial)];
 			con = [con, Task{iSession}.randVars.con(1:nTrial)];
 			posdiff = [posdiff, Task{iSession}.randVars.diff(1:nTrial)];
-		end
+        end
+        
 		sCombined = doStaircase('combine', s);
+       
 		nTrialCombined = sCombined.trialNum;
+        if nTrialCombined < nTrial
+            respCombined = respCombined(1:nTrialCombined);
+            correctCombined = correctCombined(1:nTrialCombined);
+            whichCombined = whichCombined(1:nTrialCombined);
+            con = con(1:nTrialCombined);
+            posdiff = posdiff(1:nTrialCombined);
+            nTrial = nTrialCombined;
+        elseif nTrialCombined > nTrial
+            nTrialCombined = nTrial;
+        end
+        nanInd = isnan(respCombined) | isnan(correctCombined);
+        whichCombined(nanInd) = [];
+        respCombined(isnan(respCombined)) = [];
+        correctCombined(isnan(correctCombined)) = [];
+        testValCombined = sCombined.testValues;
+        testValCombined(nanInd(1:nTrialCombined)) = [];
+        con(nanInd) = [];
+        posdiff(nanInd) = [];
 		switch taskType
 		case 1
-			testVal = unique(sCombined.testValues);
+			testVal = unique(testValCombined);
 			nTotal = arrayfun(@(x) sum(con==x), testVal);
+            testVal(nTotal==0) = [];
+            nTotal(nTotal==0) = [];
 			whichTrial = arrayfun(@(x) find(con==x), testVal, 'UniformOutput', false);
+            whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
 			nC = cellfun(@(x) sum(correctCombined(x)), whichTrial);
+%             discard = (nTotal==1);
+%             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
 			xs = 0:.001:0.6;
+            fit{i} = fitCGCon(testVal, nTotal, nC);
 		case {2,3}
-			testVal = sCombined.testValues;
+			testVal = testValCombined;
 			testVal(whichCombined==2) = -testVal(whichCombined==2);
 			testVal = unique(testVal);
 			posdiff(whichCombined==2) = -posdiff(whichCombined==2);
 			nTotal = arrayfun(@(x) sum(posdiff==x), testVal);
+            testVal(nTotal==0) = [];
+            nTotal(nTotal==0) = [];
 			whichTrial = arrayfun(@(x) find(posdiff==x), testVal, 'UniformOutput', false);
+            whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
 			nC= cellfun(@(x) sum(respCombined(x)==1), whichTrial);
 			xs = -6:.01:6;
+            fit{i} = fitCG(testVal, nTotal, nC);
 		end
 		pC = nC./nTotal;
-		fit{i} = fitCG(testVal, nTotal, nC);
 		mu = fit{i}.fitparams(1);
 		sigma = fit{i}.fitparams(2);
 		lambda = fit{i}.fitparams(3);
@@ -110,6 +140,7 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
         fit{i}.xs = xs;
         fit{i}.fitVal = fitVal;
+%         C = my_norminv(1-0.1,0,1) - my_norminv(0.1,0,1);
 		if i < 7
 			subplot(nrow/2,ncol,i)
 		else
@@ -124,10 +155,11 @@ function [fit, fieldNames] = pdFitCG(sbjID)
     		ylabel('Percent Correct');
     		xlabel('Contrast');
     		axis([0 0.6 0 1]); box off;
-            [c, ind75] = min(abs(fitVal-.75));
-            line([0 xs(ind75)], [.75 .75], 'Color','b', 'LineStyle', ':');
+            p75 = .75*(1-lambda) + lambda/2;
+            [c, ind75] = min(abs(fitVal-p75));
+            line([0 xs(ind75)], [p75 p75], 'Color','b', 'LineStyle', ':');
             if mu+sigma<=0.6 && mu+sigma >=0
-            line([xs(ind75) xs(ind75)], [.75 0], 'Color','b', 'LineStyle', ':');
+            line([xs(ind75) xs(ind75)], [p75 0], 'Color','b', 'LineStyle', ':');
             text(xs(ind75)+0.05, 0.05, sprintf('%.2f', xs(ind75)));
             end
             line([0 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
@@ -143,11 +175,17 @@ function [fit, fieldNames] = pdFitCG(sbjID)
     		ylabel('Percent Choice Interval 1');
     		xlabel('Postition difference of targets between interval 1 and 2 (deg)');
     		axis([-6 6 0 1]); box off; 
-            [c, ind75] = min(abs(fitVal-.75));
-            line([-6 xs(ind75)], [.75 .75], 'Color','b', 'LineStyle', ':');
+            p75 = .75*(1-lambda) + lambda/2;
+            p25 = .25*(1-lambda) + lambda/2;
+            [c, ind75] = min(abs(fitVal-p75));
+            [c, ind25] = min(abs(fitVal-p25));
+            line([-6 xs(ind75)], [p75 p75], 'Color','b', 'LineStyle', ':');
+            line([-6 xs(ind25)], [p25 p25], 'Color','b', 'LineStyle', ':');
             if mu+sigma<=6 && mu+sigma>=-6
-            line([xs(ind75) xs(ind75)], [.75 0], 'Color','b', 'LineStyle', ':');
+            line([xs(ind75) xs(ind75)], [p75 0], 'Color','b', 'LineStyle', ':');
             text(xs(ind75)+0.5, 0.05, sprintf('%.2f', xs(ind75)));
+            line([xs(ind25) xs(ind25)], [p25 0], 'Color','b', 'LineStyle', ':');
+            text(xs(ind25)-2, 0.05, sprintf('%.2f', xs(ind25)));
             end
             line([-6 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
             if mu<=6 && mu>=-6
@@ -159,7 +197,5 @@ function [fit, fieldNames] = pdFitCG(sbjID)
             
         end
  
-	end
-
-
+    end
 
