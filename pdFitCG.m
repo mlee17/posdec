@@ -16,12 +16,13 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		stimname = files(i).name;
 		load([sbjDir,'/',stimname]);
 		stimlist(i).taskType = stimulus.taskType;
-		if stimulus.fixOrigin(1) == -5
+		if stimulus.fixOrigin(1) ~= 0
 			stimlist(i).eccentricity = stimulus.eccentricity-stimulus.fixOrigin(1);
 		else 
 			stimlist(i).eccentricity = stimulus.eccentricity;
 		end
 		stimlist(i).contrast = stimulus.contrast;
+        stimlist(i).ISI = stimulus.ISI;
 		stimlist(i).stimType = stimulus.stimType;
 		stimlist(i).task = task{1}{1};
 		stimlist(i).stimulus = stimulus;
@@ -34,14 +35,14 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 	for i = 1:nStim
 		switch stimlist(i).taskType
 		case 1
-			lab = sprintf('%s_Ecc%02d', taskName{1}, stimlist(i).eccentricity);
+			lab = sprintf('%s_Ecc%02d_ISI%d', taskName{1}, stimlist(i).eccentricity, stimlist(i).ISI*1000);
 			if isfield(stim, lab)
 					stim(size(stim,1)+1).(lab) = stimlist(i);
 			else 
 				stim(1).(lab) = stimlist(i);
 			end
 		case {2,3}
-			lab = sprintf('Ecc%d_Con%d', stimlist(i).eccentricity, stimlist(i).contrast*1000);
+			lab = sprintf('Ecc%d_Con%d_ISI%d', stimlist(i).eccentricity, stimlist(i).contrast*1000, stimlist(i).ISI*1000);
 			if isfield(stim, lab)
 					stim(size(stim,1)+1).(lab) = stimlist(i);
 			else 
@@ -83,6 +84,7 @@ function [fit, fieldNames] = pdFitCG(sbjID)
         end
         
 		sCombined = doStaircase('combine', s);
+        h = doStaircase('getHistory', sCombined);
        
 		nTrialCombined = sCombined.trialNum;
         if nTrialCombined < nTrial
@@ -127,6 +129,8 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 			whichTrial = arrayfun(@(x) find(posdiff==x), testVal, 'UniformOutput', false);
             whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
 			nC= cellfun(@(x) sum(respCombined(x)==1), whichTrial);
+%             discard = (nTotal==1);
+%             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
 			xs = -6:.01:6;
             fit{i} = fitCG(testVal, nTotal, nC);
 		end
@@ -150,8 +154,8 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		hold on;
     	plot(xs, fitVal, 'k')
     	if taskType==1
-    		title(sprintf('Stair Contrast: Ecc=%d   (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
-    			stimStr(1).eccentricity, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
+    		title(sprintf('Stair Contrast: Ecc=%d   ISI=%d  (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
+    			stimStr(1).eccentricity, stimStr(1).ISI*1000, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Correct');
     		xlabel('Contrast');
     		axis([0 0.6 0 1]); box off;
