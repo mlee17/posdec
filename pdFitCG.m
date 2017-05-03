@@ -118,6 +118,14 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 %             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
 			xs = 0:.001:0.6;
             fit{i} = fitCGCon(testVal, nTotal, nC);
+            		pC = nC./nTotal;
+		mu = fit{i}.fitparams(1);
+		sigma = fit{i}.fitparams(2);
+		lambda = fit{i}.fitparams(3);
+%         gamma = fit{i}.fitparams(4);
+		cgfunc = fit{i}.cgfunc;
+		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
+		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
 		case {2,3}
 			testVal = testValCombined;
 			testVal(whichCombined==2) = -testVal(whichCombined==2);
@@ -129,18 +137,20 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 			whichTrial = arrayfun(@(x) find(posdiff==x), testVal, 'UniformOutput', false);
             whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
 			nC= cellfun(@(x) sum(respCombined(x)==1), whichTrial);
+%             nC= cellfun(@(x) sum(correctCombined(x)), whichTrial);
 %             discard = (nTotal==1);
 %             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
 			xs = -6:.01:6;
             fit{i} = fitCG(testVal, nTotal, nC);
-		end
-		pC = nC./nTotal;
+            pC = nC./nTotal;
 		mu = fit{i}.fitparams(1);
 		sigma = fit{i}.fitparams(2);
 		lambda = fit{i}.fitparams(3);
 		cgfunc = fit{i}.cgfunc;
 		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
 		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
+		end
+
 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
         fit{i}.xs = xs;
         fit{i}.fitVal = fitVal;
