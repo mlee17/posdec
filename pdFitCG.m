@@ -1,4 +1,4 @@
-function [fit, fieldNames] = pdFitCG(sbjID)
+function [fit, fieldNames, p] = pdFitCG(sbjID)
 	sbjDir = sprintf('~/data/posdisc/%s', sbjID);
 	files = dir(sbjDir);
 	name = {files.name}; 
@@ -49,18 +49,20 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 				stim(1).(lab) = stimlist(i);
 			end
 		end
-	end
+    end
 
+    n1=[]; n2=[]; cor1=[]; cor2=[]; per1=[]; per2=[];
+    
 	fieldNames = fieldnames(stim);
 	fieldNames = sort(fieldNames);
-	nrow = 4;
-	ncol = ceil(length(fieldNames)/nrow);
+	ncol = 3;
+	nrow = ceil(length(fieldNames)/ncol);
 	stairNames = {'con','dist','dist'};
     fit = cell(length(fieldNames),1);
 	figure(2);figure(1);
 	for i = 1:length(fieldNames)
         clearvars nC testVal nTotal whichTrial
-		if i==7; figure(2); end
+		if i==(nrow/2)*ncol+1; figure(2); end
 		numSession = length([stim.(fieldNames{i})]);
 		stimStr = [stim.(fieldNames{i})];
 		Task = cell(1,numSession);
@@ -105,6 +107,25 @@ function [fit, fieldNames] = pdFitCG(sbjID)
         testValCombined(nanInd(1:nTrialCombined)) = [];
         con(nanInd) = [];
         posdiff(nanInd) = [];
+        
+        % calculate %correct for each interval
+        ans_int1 = correctCombined(whichCombined == 1);
+        ans_int2 = correctCombined(whichCombined == 2);
+%         ans1(i) = ans_int1; ans2(i) = ans_int2;
+        
+        n_int1 = length(ans_int1);
+        n_int2 = length(ans_int2);
+        n1(i) = n_int1; n2(i) = n_int2;
+        
+        correct_int1 = sum(ans_int1);
+        correct_int2 = sum(ans_int2);
+        cor1(i) = correct_int1; cor2(i) = correct_int2;
+        
+        per_int1 = correct_int1 / n_int1;
+        per_int2 = correct_int2 / n_int2;
+        per1(i) = per_int1; per2(i) = per_int2;
+        
+        
 		switch taskType
 		case 1
 			testVal = unique(testValCombined);
@@ -116,16 +137,16 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 			nC = cellfun(@(x) sum(correctCombined(x)), whichTrial);
 %             discard = (nTotal==1);
 %             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
-			xs = 0:.001:0.6;
+			xs = 0:.001:0.75;
             fit{i} = fitCGCon(testVal, nTotal, nC);
             		pC = nC./nTotal;
-		mu = fit{i}.fitparams(1);
-		sigma = fit{i}.fitparams(2);
-		lambda = fit{i}.fitparams(3);
-%         gamma = fit{i}.fitparams(4);
-		cgfunc = fit{i}.cgfunc;
-		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
-		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
+            mu = fit{i}.fitparams(1);
+            sigma = fit{i}.fitparams(2);
+            lambda = fit{i}.fitparams(3);
+%           gamma = fit{i}.fitparams(4);
+            cgfunc = fit{i}.cgfunc;
+            fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
+            pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
 		case {2,3}
 			testVal = testValCombined;
 			testVal(whichCombined==2) = -testVal(whichCombined==2);
@@ -154,33 +175,37 @@ function [fit, fieldNames] = pdFitCG(sbjID)
 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
         fit{i}.xs = xs;
         fit{i}.fitVal = fitVal;
-%         C = my_norminv(1-0.1,0,1) - my_norminv(0.1,0,1);
-		if i < 7
+
+		if i < (nrow/2)*ncol+1
 			subplot(nrow/2,ncol,i)
 		else
-			subplot(nrow/2,ncol,i-6)
+			subplot(nrow/2,ncol,i-((nrow/2)*ncol))
 		end
 		myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6);
 		hold on;
-    	plot(xs, fitVal, 'k')
+    	plot(xs, fitVal, 'k','LineWidth',0.8)
+        linewidth = 0.8;
     	if taskType==1
     		title(sprintf('Stair Contrast: Ecc=%d   ISI=%d  (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
     			stimStr(1).eccentricity, stimStr(1).ISI*1000, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Correct');
     		xlabel('Contrast');
-    		axis([0 0.6 0 1]); box off;
-            p75 = .75*(1-lambda) + lambda/2;
+    		axis([0 0.75 0 1]); box off;
+            p75 = .75*(1-0.5-lambda) + 0.5;
+            p875 = .875*(1-0.5-lambda) + 0.5;
             [c, ind75] = min(abs(fitVal-p75));
-            line([0 xs(ind75)], [p75 p75], 'Color','b', 'LineStyle', ':');
-            if mu+sigma<=0.6 && mu+sigma >=0
-            line([xs(ind75) xs(ind75)], [p75 0], 'Color','b', 'LineStyle', ':');
+            [c, ind875] = min(abs(fitVal-p875));
+            line([0 xs(ind75)], [p75 p75], 'Color','r', 'LineStyle', ':','LineWidth',linewidth);
+            if xs(ind75)<0.75 && xs(ind75) >=0
+            line([xs(ind75) xs(ind75)], [p75 0], 'Color','r', 'LineStyle', ':','LineWidth',linewidth);
             text(xs(ind75)+0.05, 0.05, sprintf('%.2f', xs(ind75)));
             end
-            line([0 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
-            if mu <=0.6 && mu>=0
-            line([mu mu], [.5 0], 'Color','r', 'LineStyle', ':');
-            
+            line([0 xs(ind875)], [p875 p875], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
+            if mu+sigma<0.75 && mu+sigma >=0
+            line([xs(ind875) xs(ind875)], [p875 0], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
+            text(xs(ind875)+0.05, 0.05, sprintf('%.2f', xs(ind875)));
             end
+            line([0 1], [.5 .5], 'Color','g', 'LineStyle', '--','LineWidth',linewidth);
             
             drawnow;
     	else
@@ -193,17 +218,17 @@ function [fit, fieldNames] = pdFitCG(sbjID)
             p25 = .25*(1-lambda) + lambda/2;
             [c, ind75] = min(abs(fitVal-p75));
             [c, ind25] = min(abs(fitVal-p25));
-            line([-6 xs(ind75)], [p75 p75], 'Color','b', 'LineStyle', ':');
-            line([-6 xs(ind25)], [p25 p25], 'Color','b', 'LineStyle', ':');
-            if mu+sigma<=6 && mu+sigma>=-6
-            line([xs(ind75) xs(ind75)], [p75 0], 'Color','b', 'LineStyle', ':');
+            line([-6 xs(ind75)], [p75 p75], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
+            line([-6 xs(ind25)], [p25 p25], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
+            if mu+sigma<6 && mu+sigma>-6
+            line([xs(ind75) xs(ind75)], [p75 0], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
             text(xs(ind75)+0.5, 0.05, sprintf('%.2f', xs(ind75)));
-            line([xs(ind25) xs(ind25)], [p25 0], 'Color','b', 'LineStyle', ':');
+            line([xs(ind25) xs(ind25)], [p25 0], 'Color','b', 'LineStyle', ':','LineWidth',linewidth);
             text(xs(ind25)-2, 0.05, sprintf('%.2f', xs(ind25)));
             end
-            line([-6 mu], [.5 .5], 'Color','r', 'LineStyle', ':');
-            if mu<=6 && mu>=-6
-            line([mu,mu], [.5 0], 'Color','r', 'LineStyle', ':');
+            line([-6 mu], [.5 .5], 'Color','r', 'LineStyle', ':','LineWidth',1,'LineWidth',linewidth);
+            if mu<6 && mu>-6
+            line([mu,mu], [.5 0], 'Color','r', 'LineStyle', ':','LineWidth',linewidth);
             
             end
             
@@ -212,4 +237,9 @@ function [fit, fieldNames] = pdFitCG(sbjID)
         end
  
     end
+    
+%     p.ans1 = ans1; p.ans2 = ans2;
+    p.n1 = n1; p.n2 = n2;
+    p.cor1 = cor1; p.cor2 = cor2;
+    p.per1 = per1; p.per2 = per2;
 
