@@ -62,7 +62,7 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
 	figure(2);figure(1);
 	for i = 1:length(fieldNames)
         clearvars nC testVal nTotal whichTrial
-		if i==(nrow/2)*ncol+1; figure(2); end
+		if i==(nrow/2)*ncol+1; figure(2);end
 		numSession = length([stim.(fieldNames{i})]);
 		stimStr = [stim.(fieldNames{i})];
 		Task = cell(1,numSession);
@@ -107,6 +107,7 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
         testValCombined(nanInd(1:nTrialCombined)) = [];
         con(nanInd) = [];
         posdiff(nanInd) = [];
+        nTrialCombined = length(posdiff);
         
         % calculate %correct for each interval
         ans_int1 = correctCombined(whichCombined == 1);
@@ -149,6 +150,16 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
             pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
 		case {2,3}
 			testVal = testValCombined;
+            tvCopy = testVal;
+            tvCopy = unique(tvCopy);
+            nCopy = arrayfun(@(x) sum(posdiff==x), tvCopy);
+            tvCopy(nCopy==0) = [];
+            nCopy(nCopy==0) = [];
+            whichCopy = arrayfun(@(x) find(posdiff==x), tvCopy, 'UniformOutput', false);
+            whichCopy(cellfun(@(x) isempty(x), whichCopy)) = [];
+			correctCopy= cellfun(@(x) sum(respCombined(x)==1), whichCopy);
+            pC_collapsed = correctCopy./nCopy;  %collapsed percent correct
+            
 			testVal(whichCombined==2) = -testVal(whichCombined==2);
 			testVal = unique(testVal);
 			posdiff(whichCombined==2) = -posdiff(whichCombined==2);
@@ -157,20 +168,24 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
             nTotal(nTotal==0) = [];
 			whichTrial = arrayfun(@(x) find(posdiff==x), testVal, 'UniformOutput', false);
             whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
-			nC= cellfun(@(x) sum(respCombined(x)==1), whichTrial);
+			nInt1= cellfun(@(x) sum(respCombined(x)==1), whichTrial);
+            nCorrect = cellfun(@(x) sum(correctCombined(x)==1), whichTrial);
+            
 %             nC= cellfun(@(x) sum(correctCombined(x)), whichTrial);
 %             discard = (nTotal==1);
 %             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
 			xs = -6:.01:6;
-            fit{i} = fitCG(testVal, nTotal, nC);
-            pC = nC./nTotal;
+            fit{i} = fitCG(testVal, nTotal, nInt1);
+            pC = nInt1./nTotal;  %percentage Interval 1
+            pCorrect = nCorrect./nTotal;
+            
 		mu = fit{i}.fitparams(1);
 		sigma = fit{i}.fitparams(2);
 		lambda = fit{i}.fitparams(3);
 		cgfunc = fit{i}.cgfunc;
 		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
 		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
-		end
+        end
 
 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
         fit{i}.xs = xs;
