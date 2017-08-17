@@ -61,7 +61,7 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
     fit = cell(length(fieldNames),1);
 	figure(2);figure(1);
 	for i = 1:length(fieldNames)
-        clearvars nC testVal nTotal whichTrial
+        clearvars nC nTotal whichTrial testVal nTotalBin nCbin
 		if i==(nrow/2)*ncol+1; figure(2);end
 		numSession = length([stim.(fieldNames{i})]);
 		stimStr = [stim.(fieldNames{i})];
@@ -126,30 +126,51 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
         per_int2 = correct_int2 / n_int2;
         per1(i) = per_int1; per2(i) = per_int2;
         
-        
+        clear binnedTrial
 		switch taskType
 		case 1
 			testVal = unique(testValCombined);
+            for b = 1:10
+                switch b
+                    case 1
+                        binnedTrial{b} = find(con>=0 & con<=0.1);
+                    case 10
+                        binnedTrial{b} = find(con>0.9);
+                    otherwise
+                        binnedTrial{b} = find(con>(b-1)*0.1 & con<=b*0.1);
+                end
+            end
+%             binInd = 1:10;
+            binCenter = .05:.1:.95;
+                
+            nTotalBin = cellfun(@(x) length(x), binnedTrial);   %if nTotal==0!!!!
 			nTotal = arrayfun(@(x) sum(con==x), testVal);
             testVal(nTotal==0) = [];
+            binnedTrial(nTotalBin==0) = [];
+            binCenter(nTotalBin==0) = [];
+            nTotalBin(nTotalBin==0) = [];
             nTotal(nTotal==0) = [];
 			whichTrial = arrayfun(@(x) find(con==x), testVal, 'UniformOutput', false);
             whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
 			nC = cellfun(@(x) sum(correctCombined(x)), whichTrial);
-%             discard = (nTotal==1);
-%             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
-			xs = 0:.001:0.75;
-            fit{i} = fitCGCon(testVal, nTotal, nC);
+            nCbin = cellfun(@(x) sum(correctCombined(x)), binnedTrial);
+            
+			xs = 0:.001:1;
+            fit{i} = fitCGCon(binCenter, nTotalBin, nCbin);
             		pC = nC./nTotal;
+                    pCbin = nCbin./nTotalBin;
             mu = fit{i}.fitparams(1);
             sigma = fit{i}.fitparams(2);
             lambda = fit{i}.fitparams(3);
 %           gamma = fit{i}.fitparams(4);
             cgfunc = fit{i}.cgfunc;
             fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
+            pfitValBin = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), binCenter);
             pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
+            error = sqrt(pfitValBin.*(1-pfitValBin)./nTotalBin);
 		case {2,3}
 			testVal = testValCombined;
+            
             tvCopy = testVal;
             tvCopy = unique(tvCopy);
             nCopy = arrayfun(@(x) sum(posdiff==x), tvCopy);
@@ -174,20 +195,70 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
 %             nC= cellfun(@(x) sum(correctCombined(x)), whichTrial);
 %             discard = (nTotal==1);
 %             testVal(discard) = []; nTotal(discard)=[]; nC(discard)=[];
+
+        %binning
+%             binCenter = -5:1:5;
+% %             testVal = unique(testValCombined);
+%             for b = 1:11
+%                 switch b
+%                     case 1
+%                         binnedTrial{b} = find(posdiff<=-4.5);
+%                     case 11
+%                         binnedTrial{b} = find(posdiff>4.5);
+%                     otherwise
+%                         binnedTrial{b} = find(posdiff>binCenter(b)-0.5 & ...
+%                             posdiff<=binCenter(b)+0.5);
+%                 end
+%             end
+        binCenter = -5:.5:5;
+%             testVal = unique(testValCombined);
+            for b = 1:21
+                switch b
+                    case 1
+                        binnedTrial{b} = find(posdiff<=-4.75);
+                    case 21
+                        binnedTrial{b} = find(posdiff>4.75);
+                    otherwise
+                        binnedTrial{b} = find(posdiff>binCenter(b)-0.25 & ...
+                            posdiff<=binCenter(b)+0.25);
+                end
+            end
+
+             nTotalBin = cellfun(@(x) length(x), binnedTrial);   %if nTotal==0!!!!
+			nTotal = arrayfun(@(x) sum(diff==x), testVal);
+            testVal(nTotal==0) = [];
+            binnedTrial(nTotalBin==0) = [];
+            binCenter(nTotalBin==0) = [];
+            nTotalBin(nTotalBin==0) = [];
+            nTotal(nTotal==0) = [];
+			whichTrial = arrayfun(@(x) find(diff==x), testVal, 'UniformOutput', false);
+            whichTrial(cellfun(@(x) isempty(x), whichTrial)) = [];
+			nC = cellfun(@(x) sum(correctCombined(x)), whichTrial);
+            nCbin = cellfun(@(x) sum(correctCombined(x)), binnedTrial);
+            nInt1bin= cellfun(@(x) sum(respCombined(x)==1), binnedTrial);
+            
+            
 			xs = -6:.01:6;
-            fit{i} = fitCG(testVal, nTotal, nInt1);
-            pC = nInt1./nTotal;  %percentage Interval 1
-            pCorrect = nCorrect./nTotal;
+%             fit{i} = fitCG(testVal, nTotal, nInt1);
+%             pC = nInt1./nTotal;  %percentage Interval 1
+%             pCorrect = nCorrect./nTotal;
+            fit{i} = fitCG(binCenter, nTotalBin, nInt1bin);
+            pCbin = nInt1bin./nTotalBin;
             
 		mu = fit{i}.fitparams(1);
 		sigma = fit{i}.fitparams(2);
 		lambda = fit{i}.fitparams(3);
 		cgfunc = fit{i}.cgfunc;
 		fitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), xs);
-		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
+% 		pfitVal = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), testVal);
+        pfitValBin = arrayfun(@(x) cgfunc(mu,sigma,lambda,x), binCenter);
+%         error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
+        error = sqrt(pfitValBin.*(1-pfitValBin)./nTotalBin);
+        
+       
         end
 
-		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
+% 		error = sqrt(pfitVal.*(1-pfitVal)./nTotal);
         fit{i}.xs = xs;
         fit{i}.fitVal = fitVal;
 
@@ -196,16 +267,19 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
 		else
 			subplot(nrow/2,ncol,i-((nrow/2)*ncol))
 		end
-		myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6);
+		
+    	if taskType==1
+            myerrorbar(binCenter, pCbin,'yError',error, 'Symbol','o', 'MarkerSize',6);
 		hold on;
     	plot(xs, fitVal, 'k','LineWidth',0.8)
         linewidth = 0.8;
-    	if taskType==1
+            
+            
     		title(sprintf('Stair Contrast: Ecc=%d   ISI=%d  (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
     			stimStr(1).eccentricity, stimStr(1).ISI*1000, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Correct');
     		xlabel('Contrast');
-    		axis([0 0.75 0 1]); box off;
+    		axis([0 1 0 1]); box off;
             p75 = .75*(1-0.5-lambda) + 0.5;
             p875 = .875*(1-0.5-lambda) + 0.5;
             [c, ind75] = min(abs(fitVal-p75));
@@ -223,7 +297,13 @@ function [fit, fieldNames, p] = pdFitCG(sbjID)
             line([0 1], [.5 .5], 'Color','g', 'LineStyle', '--','LineWidth',linewidth);
             
             drawnow;
-    	else
+        else
+%             myerrorbar(testVal, pC, 'Symbol','o', 'MarkerSize',6);
+            myerrorbar(binCenter, pCbin,'yError',error, 'Symbol','o', 'MarkerSize',6);
+		hold on;
+    	plot(xs, fitVal, 'k','LineWidth',0.8)
+        linewidth = 0.8;
+            
     		title(sprintf('Ecc=%d   Con=%0.3f   (N=%d) \n \\mu=%0.2f \\sigma=%0.2f \\lambda=%0.2f \n', ...
     			stimStr(1).eccentricity, stimStr(1).stimulus.contrast, nTrialCombined, mu,sigma,lambda), 'Interpreter','tex');
     		ylabel('Percent Choice Interval 1');
